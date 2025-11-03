@@ -6,6 +6,8 @@ A comprehensive web application for designing, validating, and preparing text-to
 
 [View Live Demo](https://redpill47.github.io/tts-prosody-builder)
 
+**Features cloud sync with Supabase for cross-device data persistence.**
+
 ## 📋 Features
 
 - **7-Phase Workflow**: Complete experimental design pipeline
