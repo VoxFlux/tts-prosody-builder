@@ -28,6 +28,7 @@ export interface PersistedData {
     customProsody: any;
     inputText: string;
     emphasisWords: any[];
+    scenarios?: any[];
   };
   
   // Attention Check Generator
