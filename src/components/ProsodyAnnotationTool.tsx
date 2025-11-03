@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Volume2, TrendingDown, Gauge, Clock, Copy, Download, Settings, List } from 'lucide-react';
+import { Volume2, TrendingDown, Gauge, Clock, Copy, Download, Settings } from 'lucide-react';
 import { loadFromStorage } from '../utils/persistence';
 
 const ProsodyAnnotationTool = () => {
@@ -16,27 +16,22 @@ const ProsodyAnnotationTool = () => {
   useEffect(() => {
     const savedData = loadFromStorage();
     if (savedData.prosodyAnnotation?.scenarios) {
-      setScenarios(savedData.prosodyAnnotation.scenarios);
+      const loadedScenarios = savedData.prosodyAnnotation.scenarios;
+      setScenarios(loadedScenarios);
+      // Auto-select the first scenario if available
+      if (loadedScenarios.length > 0 && !selectedScenario) {
+        const firstScenario = loadedScenarios[0];
+        setSelectedScenario(firstScenario);
+        setInputText(firstScenario.optionA);
+      }
     }
   }, []);
 
   // Handle scenario selection
-  const handleScenarioSelect = (scenario: any) => {
+  const handleScenarioSelect = (scenario: any, option: 'A' | 'B') => {
     setSelectedScenario(scenario);
-    // Update input text based on selected option
-    if (selectedOption === 'A') {
-      setInputText(scenario.optionA);
-    } else {
-      setInputText(scenario.optionB);
-    }
-  };
-
-  // Handle option change (A or B)
-  const handleOptionChange = (option: 'A' | 'B') => {
     setSelectedOption(option);
-    if (selectedScenario) {
-      setInputText(option === 'A' ? selectedScenario.optionA : selectedScenario.optionB);
-    }
+    setInputText(option === 'A' ? scenario.optionA : scenario.optionB);
   };
 
   // Prosodic presets based on literature
@@ -450,68 +445,78 @@ ACOUSTIC VALIDATION TARGETS:
             <h2 className="text-xl font-bold text-gray-800 mb-4">Generate SSML Code</h2>
 
             {/* Scenario Selector */}
-            {scenarios.length > 0 && (
-              <div className="mb-6 p-4 bg-blue-50 border-l-4 border-blue-400 rounded">
-                <div className="flex items-center gap-2 mb-3">
-                  <List size={20} className="text-blue-600" />
-                  <h3 className="font-semibold text-blue-900">Load from Approved Scenarios</h3>
-                </div>
-                <div className="grid grid-cols-1 gap-3">
+            {scenarios.length > 0 ? (
+              <>
+                <h3 className="font-semibold text-gray-800 mb-3">Select Scenario and Option:</h3>
+                <div className="grid grid-cols-1 gap-3 mb-6">
                   {scenarios.map((scenario: any) => (
-                    <div key={scenario.id} className="bg-white p-3 rounded border">
-                      <div className="flex items-center justify-between mb-2">
-                        <div>
-                          <span className="font-semibold text-gray-800">{scenario.domain}</span>
-                          <span className="text-gray-600 text-sm ml-2">- {scenario.context}</span>
-                        </div>
+                    <div key={scenario.id} className={`p-4 rounded border-2 transition-all ${
+                      selectedScenario?.id === scenario.id
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <div className="mb-3">
+                        <span className="font-semibold text-gray-800 text-lg">{scenario.domain}</span>
+                        <p className="text-gray-600 text-sm">{scenario.context}</p>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="grid grid-cols-2 gap-3">
                         <button
-                          onClick={() => { handleScenarioSelect(scenario); handleOptionChange('A'); }}
-                          className={`px-3 py-1 rounded text-sm ${
+                          onClick={() => handleScenarioSelect(scenario, 'A')}
+                          className={`p-3 rounded text-sm font-medium transition-all text-left ${
                             selectedScenario?.id === scenario.id && selectedOption === 'A'
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-100 hover:bg-gray-200'
+                              ? 'bg-blue-600 text-white shadow-lg'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                           }`}
                         >
-                          Load Option A
+                          <div className="font-bold mb-1">Option A</div>
+                          <div className="text-xs opacity-80 line-clamp-2">{scenario.optionA}</div>
                         </button>
                         <button
-                          onClick={() => { handleScenarioSelect(scenario); handleOptionChange('B'); }}
-                          className={`px-3 py-1 rounded text-sm ${
+                          onClick={() => handleScenarioSelect(scenario, 'B')}
+                          className={`p-3 rounded text-sm font-medium transition-all text-left ${
                             selectedScenario?.id === scenario.id && selectedOption === 'B'
-                              ? 'bg-green-600 text-white'
-                              : 'bg-gray-100 hover:bg-gray-200'
+                              ? 'bg-green-600 text-white shadow-lg'
+                              : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                           }`}
                         >
-                          Load Option B
+                          <div className="font-bold mb-1">Option B</div>
+                          <div className="text-xs opacity-80 line-clamp-2">{scenario.optionB}</div>
                         </button>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-blue-700 mt-3">
-                  💡 Select a scenario option to automatically load it into the text editor below
+
+                {/* Current Selection Display */}
+                {selectedScenario && (
+                  <div className="mb-4 p-4 bg-gray-50 rounded border border-gray-200">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-semibold text-gray-700">
+                        Current: {selectedScenario.domain} - Option {selectedOption}
+                      </span>
+                      <button
+                        onClick={() => setInputText(selectedOption === 'A' ? selectedScenario.optionA : selectedScenario.optionB)}
+                        className="text-xs text-blue-600 hover:text-blue-700"
+                      >
+                        Reset to original
+                      </button>
+                    </div>
+                    <textarea
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      className="w-full p-3 border rounded text-sm font-mono h-20"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">You can edit the text above if needed</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                <p className="text-yellow-800">
+                  <strong>No scenarios available.</strong> Go to the Text Review tool to approve scenarios and send them here.
                 </p>
               </div>
             )}
-
-            <div className="mb-4">
-              <label className="block font-semibold text-gray-700 mb-2">
-                Input Text:
-                {selectedScenario && (
-                  <span className="ml-2 text-sm font-normal text-blue-600">
-                    (Loaded: {selectedScenario.domain} - Option {selectedOption})
-                  </span>
-                )}
-              </label>
-              <textarea
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                className="w-full p-3 border rounded text-sm font-mono h-24"
-                placeholder="Enter your neutral scenario text or load from approved scenarios above..."
-              />
-            </div>
 
             <div className="mb-4">
               <label className="block font-semibold text-gray-700 mb-2">Select Prosody Preset:</label>
