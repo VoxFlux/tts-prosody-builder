@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Edit, Save, X } from 'lucide-react';
-import { loadFromStorage, createAutoSave } from '../utils/persistence';
+import { AlertCircle, CheckCircle, Edit, Save, X, Send } from 'lucide-react';
+import { loadFromStorage, createAutoSave, saveToStorage } from '../utils/persistence';
 
 const ScenarioRefinementTool = () => {
   const [scenarios, setScenarios] = useState<any[]>([
@@ -212,6 +212,45 @@ const ScenarioRefinementTool = () => {
     }
   };
 
+  const sendToProsodyAnnotation = (scenario: any) => {
+    const savedData = loadFromStorage();
+    const existingScenarios = savedData.prosodyAnnotation?.scenarios || [];
+
+    // Check if scenario already exists
+    const alreadyExists = existingScenarios.some((s: any) => s.id === scenario.id);
+
+    if (alreadyExists) {
+      alert('This scenario has already been sent to Prosody Annotation!');
+      return;
+    }
+
+    // Add scenario to prosody annotation list
+    const updatedScenarios = [...existingScenarios, {
+      id: scenario.id,
+      domain: scenario.domain,
+      context: scenario.context,
+      optionA: scenario.optionA.text,
+      optionB: scenario.optionB.text,
+      addedAt: new Date().toISOString()
+    }];
+
+    const currentProsody = savedData.prosodyAnnotation || {
+      selectedPreset: 'neutral',
+      customProsody: {},
+      inputText: '',
+      emphasisWords: []
+    };
+
+    saveToStorage({
+      prosodyAnnotation: {
+        ...currentProsody,
+        scenarios: updatedScenarios
+      }
+    });
+
+    alert('Scenario sent to Prosody Annotation! Navigate to the Prosody tool to annotate it.');
+  };
+
   const clearAllScenarios = () => {
     if (confirm('Are you sure you want to clear all scenarios? This action cannot be undone.')) {
       setScenarios([]);
@@ -355,12 +394,12 @@ const ScenarioRefinementTool = () => {
                       </div>
                     )}
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <button
                         onClick={() => updateStatus(scenario.id, "approved")}
                         className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                          scenario.status === "approved" 
-                            ? "bg-green-700 text-white cursor-default" 
+                          scenario.status === "approved"
+                            ? "bg-green-700 text-white cursor-default"
                             : "bg-green-600 text-white hover:bg-green-700"
                         }`}
                         disabled={scenario.status === "approved"}
@@ -370,14 +409,23 @@ const ScenarioRefinementTool = () => {
                       <button
                         onClick={() => updateStatus(scenario.id, "needs-revision")}
                         className={`px-4 py-2 rounded text-sm font-medium transition-colors ${
-                          scenario.status === "needs-revision" 
-                            ? "bg-orange-700 text-white cursor-default" 
+                          scenario.status === "needs-revision"
+                            ? "bg-orange-700 text-white cursor-default"
                             : "bg-orange-600 text-white hover:bg-orange-700"
                         }`}
                         disabled={scenario.status === "needs-revision"}
                       >
                         {scenario.status === "needs-revision" ? "⚠ Needs Revision" : "Needs Revision"}
                       </button>
+                      {scenario.status === "approved" && (
+                        <button
+                          onClick={() => sendToProsodyAnnotation(scenario)}
+                          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm font-medium transition-colors flex items-center gap-2"
+                        >
+                          <Send size={16} />
+                          Send to Prosody Annotation
+                        </button>
+                      )}
                       {(scenario.status === "approved" || scenario.status === "needs-revision") && (
                         <button
                           onClick={() => updateStatus(scenario.id, "draft")}
