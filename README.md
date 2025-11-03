@@ -74,3 +74,4 @@ This tool is designed for:
 ## 📄 License
 
 MIT License - see LICENSE file for details
+
