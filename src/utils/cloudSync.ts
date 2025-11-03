@@ -14,16 +14,42 @@ export const syncToCloud = async (userId: string): Promise<{ success: boolean; e
   try {
     const localData = loadFromStorage();
 
-    const { error } = await supabase
+    // First check if record exists
+    const { data: existing } = await supabase
       .from('user_data')
-      .upsert({
-        user_id: userId,
-        data: localData,
-        last_synced: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      .select('id')
+      .eq('user_id', userId)
+      .maybeSingle();
 
-    if (error) throw error;
+    let error;
+    if (existing) {
+      // Update existing record
+      const result = await supabase
+        .from('user_data')
+        .update({
+          data: localData,
+          last_synced: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+      error = result.error;
+    } else {
+      // Insert new record
+      const result = await supabase
+        .from('user_data')
+        .insert({
+          user_id: userId,
+          data: localData,
+          last_synced: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
+      error = result.error;
+    }
+
+    if (error) {
+      console.error('Supabase upsert error:', error);
+      throw error;
+    }
 
     return { success: true };
   } catch (error: any) {
@@ -39,11 +65,12 @@ export const syncFromCloud = async (userId: string): Promise<{ success: boolean;
   try {
     const { data, error } = await supabase
       .from('user_data')
-      .select('*')
+      .select('data')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') { // PGRST116 = no rows found
+    if (error) {
+      console.error('Supabase query error:', error);
       throw error;
     }
 
