@@ -37,16 +37,21 @@ const ProsodyAnnotationTool = () => {
     }
   };
 
-  // Load scenarios on mount and set up polling for updates
+  // Load scenarios on mount and listen for updates
   useEffect(() => {
     loadScenarios();
 
-    // Check for new scenarios every 2 seconds
-    const interval = setInterval(() => {
+    // Listen for custom event when scenarios are added
+    const handleScenariosUpdate = () => {
+      console.log('Received prosodyScenariosUpdated event, reloading...');
       loadScenarios();
-    }, 2000);
+    };
 
-    return () => clearInterval(interval);
+    window.addEventListener('prosodyScenariosUpdated', handleScenariosUpdate);
+
+    return () => {
+      window.removeEventListener('prosodyScenariosUpdated', handleScenariosUpdate);
+    };
   }, []);
 
   // Handle scenario selection
