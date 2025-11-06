@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Volume2, TrendingDown, Gauge, Clock, Copy, Download, Settings } from 'lucide-react';
 import { loadFromStorage } from '../utils/persistence';
 
@@ -13,26 +13,27 @@ const ProsodyAnnotationTool = () => {
     "The Premium Card has a €49 annual fee, offers 1% cashback on all purchases, and includes comprehensive travel insurance with emergency assistance worldwide."
   );
 
+  // Track last loaded scenarios to avoid unnecessary updates
+  const lastScenariosRef = useRef<string>('');
+
   // Function to load scenarios from storage
   const loadScenarios = () => {
     const savedData = loadFromStorage();
-    console.log('Loading scenarios from storage:', savedData.prosodyAnnotation?.scenarios);
+    const loadedScenarios = savedData.prosodyAnnotation?.scenarios || [];
+    const scenariosJson = JSON.stringify(loadedScenarios);
 
-    if (savedData.prosodyAnnotation?.scenarios) {
-      const loadedScenarios = savedData.prosodyAnnotation.scenarios;
-
-      // Force update by creating a new array reference
-      setScenarios([...loadedScenarios]);
+    // Only update state if scenarios have actually changed
+    if (scenariosJson !== lastScenariosRef.current) {
+      console.log('Scenarios changed, updating:', loadedScenarios);
+      lastScenariosRef.current = scenariosJson;
+      setScenarios(loadedScenarios);
 
       // Auto-select the first scenario if available and none is selected
-      if (loadedScenarios.length > 0 && !selectedScenario) {
+      if (loadedScenarios.length > 0 && scenarios.length === 0) {
         const firstScenario = loadedScenarios[0];
         setSelectedScenario(firstScenario);
         setInputText(firstScenario.optionA);
       }
-    } else {
-      console.log('No scenarios found in storage');
-      setScenarios([]);
     }
   };
 
