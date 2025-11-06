@@ -5,6 +5,7 @@ import { loadFromStorage } from '../utils/persistence';
 const ProsodyAnnotationTool = () => {
   const [activeTab, setActiveTab] = useState('presets');
   const [selectedPreset, setSelectedPreset] = useState('authoritative');
+  const [selectedPlatform, setSelectedPlatform] = useState<'azure' | 'google' | 'sesame'>('azure');
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<'A' | 'B'>('A');
@@ -125,38 +126,173 @@ const ProsodyAnnotationTool = () => {
         "Lower intensity → less confidence [Van Zant & Berger, 2020]",
         "Slower rate near boundaries → doubt [Gomes et al., 2023]"
       ]
+    },
+    confident: {
+      name: "Confident/Assured",
+      description: "Stable pitch, moderate rate, clear articulation - signals certainty",
+      parameters: {
+        pitch: { shift: -100, range: -20, contour: "stable" },
+        rate: { global: -8, local: [] },
+        volume: { level: +2, peaks: [] },
+        pauses: [{ position: "after-key-points", duration: 250 }],
+        voiceQuality: "modal"
+      },
+      color: "purple",
+      icon: "💪",
+      literature: [
+        "Moderate F0 lowering (-100 to -150 cents) → competence [Guyer et al., 2018]",
+        "Stable pitch range → certainty [Jiang & Pell, 2017]",
+        "Slightly slower rate (-5-10%) → clarity [Miller et al., 1976]",
+        "Modal voice quality → credibility [Goupil et al., 2021]"
+      ]
     }
   };
 
-  const generateSSML = (text: string, preset: string) => {
+  // Platform-specific SSML generators
+  const generateAzureSSML = (text: string, preset: string) => {
     const params = (presets as any)[preset].parameters;
-    let ssml = `<?xml version="1.0"?>
-<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
-       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-       xsi:schemaLocation="http://www.w3.org/2001/10/synthesis
-                   http://www.w3.org/TR/speech-synthesis/synthesis.xsd"
-       xml:lang="en-US">
 
-  <prosody`;
+    let ssml = `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis"
+       xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="en-US">
+  <voice name="en-US-GuyNeural">
+    <mstts:silence type="Leading" value="200ms"/>
+`;
 
-    // Add pitch
-    if (params.pitch.shift !== 0) {
-      ssml += ` pitch="${params.pitch.shift > 0 ? '+' : ''}${params.pitch.shift}cents"`;
+    // Add express-as style for certain presets
+    if (preset === 'authoritative' || preset === 'confident') {
+      ssml += `    <mstts:express-as style="newscast-formal" styledegree="1.5">\n`;
+    } else if (preset === 'friendly') {
+      ssml += `    <mstts:express-as style="friendly" styledegree="1.3">\n`;
+    } else if (preset === 'urgent') {
+      ssml += `    <mstts:express-as style="excited" styledegree="1.2">\n`;
     }
 
-    // Add rate
+    // Add prosody tags
+    ssml += `      <prosody`;
+    if (params.pitch.shift !== 0) {
+      const pitchPercent = Math.round(params.pitch.shift / 20); // Convert cents to approximate %
+      ssml += ` pitch="${pitchPercent > 0 ? '+' : ''}${pitchPercent}%"`;
+    }
     if (params.rate.global !== 0) {
       ssml += ` rate="${params.rate.global > 0 ? '+' : ''}${params.rate.global}%"`;
     }
+    if (params.volume.level !== 0) {
+      const volumeLevel = params.volume.level > 3 ? 'loud' : params.volume.level < -2 ? 'soft' : 'medium';
+      ssml += ` volume="${volumeLevel}"`;
+    }
+    ssml += `>\n        ${text}\n      </prosody>\n`;
 
-    // Add volume
+    if (preset === 'authoritative' || preset === 'confident' || preset === 'friendly' || preset === 'urgent') {
+      ssml += `    </mstts:express-as>\n`;
+    }
+
+    ssml += `    <mstts:silence type="Tailing" value="200ms"/>
+  </voice>
+</speak>`;
+    return ssml;
+  };
+
+  const generateGoogleSSML = (text: string, preset: string) => {
+    const params = (presets as any)[preset].parameters;
+
+    let ssml = `<speak version="1.0" xml:lang="en-US">
+  <voice language="en-US" name="en-US-Neural2-D">
+    <break time="200ms"/>
+    <prosody`;
+
+    // Pitch in semitones for Google
+    if (params.pitch.shift !== 0) {
+      const semitones = (params.pitch.shift / 100).toFixed(1);
+      const semitonesNum = parseFloat(semitones);
+      ssml += ` pitch="${semitonesNum > 0 ? '+' : ''}${semitones}st"`;
+    }
+
+    // Rate as percentage (0-100 = slower, 100+ = faster)
+    if (params.rate.global !== 0) {
+      const ratePercent = 100 + params.rate.global;
+      ssml += ` rate="${ratePercent}%"`;
+    }
+
+    // Volume levels
+    if (params.volume.level !== 0) {
+      const volumeLevel = params.volume.level > 3 ? 'loud' : params.volume.level < -2 ? 'soft' : 'medium';
+      ssml += ` volume="${volumeLevel}"`;
+    }
+
+    ssml += `>\n      ${text}\n    </prosody>
+    <break time="200ms"/>
+  </voice>
+</speak>`;
+    return ssml;
+  };
+
+  const generateSesameSSML = (text: string, preset: string) => {
+    const params = (presets as any)[preset].parameters;
+
+    let ssml = `<speak version="1.1" xml:lang="en-US"
+       xmlns:sesame="http://csm.sesame/ssml/extensions">
+  <voice name="en-US-Sesame-Male-01">
+    <break time="200ms"/>
+`;
+
+    // Add voice transformation for specific styles
+    const transformationType = preset === 'authoritative' ? 'authoritative'
+                              : preset === 'friendly' ? 'friendly'
+                              : preset === 'hesitant' ? 'uncertain'
+                              : preset === 'confident' ? 'confident'
+                              : null;
+
+    if (transformationType) {
+      const strength = preset === 'authoritative' ? '0.75' : '0.6';
+      ssml += `    <sesame:voice-transformation type="${transformationType}" strength="${strength}">\n`;
+    }
+
+    ssml += `      <prosody`;
+
+    // Pitch in Hz offset
+    if (params.pitch.shift !== 0) {
+      const hzOffset = Math.round(params.pitch.shift / 3); // Rough conversion
+      ssml += ` pitch="${hzOffset > 0 ? '+' : ''}${hzOffset}Hz"`;
+    }
+
+    // Rate as multiplier
+    if (params.rate.global !== 0) {
+      const rateMultiplier = (1 + params.rate.global / 100).toFixed(2);
+      ssml += ` rate="${rateMultiplier}"`;
+    }
+
+    // Volume in dB
     if (params.volume.level !== 0) {
       ssml += ` volume="${params.volume.level > 0 ? '+' : ''}${params.volume.level}dB"`;
     }
 
-    ssml += `>\n    ${text}\n  </prosody>\n</speak>`;
+    // Pitch range
+    const rangeType = params.pitch.range < -10 ? 'narrow' : params.pitch.range > 10 ? 'wide' : 'normal';
+    ssml += ` range="${rangeType}"`;
 
+    ssml += `>\n        ${text}\n      </prosody>\n`;
+
+    if (transformationType) {
+      ssml += `    </sesame:voice-transformation>\n`;
+    }
+
+    ssml += `    <break time="200ms"/>
+  </voice>
+</speak>`;
     return ssml;
+  };
+
+  const generateSSML = (text: string, preset: string, platform: string = selectedPlatform) => {
+    switch (platform) {
+      case 'azure':
+        return generateAzureSSML(text, preset);
+      case 'google':
+        return generateGoogleSSML(text, preset);
+      case 'sesame':
+        return generateSesameSSML(text, preset);
+      default:
+        return generateAzureSSML(text, preset);
+    }
   };
 
   const generateControlSheet = (preset: string) => {
@@ -520,7 +656,7 @@ ACOUSTIC VALIDATION TARGETS:
 
             <div className="mb-4">
               <label className="block font-semibold text-gray-700 mb-2">Select Prosody Preset:</label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-6 gap-2">
                 {Object.keys(presets).map(key => (
                   <button
                     key={key}
@@ -537,11 +673,52 @@ ACOUSTIC VALIDATION TARGETS:
               </div>
             </div>
 
+            <div className="mb-4">
+              <label className="block font-semibold text-gray-700 mb-2">Select TTS Platform:</label>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setSelectedPlatform('azure')}
+                  className={`px-4 py-2 rounded text-sm font-medium ${
+                    selectedPlatform === 'azure'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Azure Neural TTS
+                </button>
+                <button
+                  onClick={() => setSelectedPlatform('google')}
+                  className={`px-4 py-2 rounded text-sm font-medium ${
+                    selectedPlatform === 'google'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  Google Cloud TTS
+                </button>
+                <button
+                  onClick={() => setSelectedPlatform('sesame')}
+                  className={`px-4 py-2 rounded text-sm font-medium ${
+                    selectedPlatform === 'sesame'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                  }`}
+                >
+                  CSM Sesame TTS
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                Platform-specific SSML syntax and voice models
+              </p>
+            </div>
+
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
-                <h3 className="font-semibold text-gray-300 text-sm">Generated SSML:</h3>
+                <h3 className="font-semibold text-gray-300 text-sm">
+                  Generated SSML ({selectedPlatform === 'azure' ? 'Azure' : selectedPlatform === 'google' ? 'Google' : 'Sesame'}):
+                </h3>
                 <button
-                  onClick={() => copyToClipboard(generateSSML(inputText, selectedPreset))}
+                  onClick={() => copyToClipboard(generateSSML(inputText, selectedPreset, selectedPlatform))}
                   className="text-sm text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
                 >
                   <Copy size={14} />
@@ -549,30 +726,49 @@ ACOUSTIC VALIDATION TARGETS:
                 </button>
               </div>
               <pre className="text-xs text-gray-300 overflow-x-auto">
-                {generateSSML(inputText, selectedPreset)}
+                {generateSSML(inputText, selectedPreset, selectedPlatform)}
               </pre>
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">SSML Compatibility Notes</h3>
-            <div className="grid md:grid-cols-2 gap-4">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Multi-Platform TTS Support</h3>
+            <div className="grid md:grid-cols-3 gap-4">
               <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-                <h4 className="font-semibold text-blue-900 mb-2">✓ Azure Neural Voices</h4>
+                <h4 className="font-semibold text-blue-900 mb-2">✓ Azure Neural TTS</h4>
                 <ul className="text-sm space-y-1 text-blue-800">
-                  <li>• Full support for pitch, rate, volume</li>
-                  <li>• Robust SSML reproducibility</li>
-                  <li>• Style tokens available</li>
+                  <li>• Full prosody control (pitch, rate, volume)</li>
+                  <li>• Speaking style support (newscast, friendly)</li>
+                  <li>• Neural voices: GuyNeural, JennyNeural</li>
+                  <li>• SSML 1.0 + mstts extensions</li>
                 </ul>
               </div>
               <div className="bg-green-50 border-l-4 border-green-400 p-4">
-                <h4 className="font-semibold text-green-900 mb-2">✓ Open-Source Models</h4>
+                <h4 className="font-semibold text-green-900 mb-2">✓ Google Cloud TTS</h4>
                 <ul className="text-sm space-y-1 text-green-800">
-                  <li>• Prosody-TTS: Direct F0/duration control</li>
-                  <li>• Controllable Neural TTS: Independent params</li>
-                  <li>• Flowtron: Latent-space manipulation</li>
+                  <li>• Prosody in semitones (pitch)</li>
+                  <li>• Rate as percentage (0-100+)</li>
+                  <li>• WaveNet/Neural2 voices</li>
+                  <li>• Standard SSML 1.0</li>
                 </ul>
               </div>
+              <div className="bg-purple-50 border-l-4 border-purple-400 p-4">
+                <h4 className="font-semibold text-purple-900 mb-2">✓ CSM Sesame TTS</h4>
+                <ul className="text-sm space-y-1 text-purple-800">
+                  <li>• Direct Hz/dB control</li>
+                  <li>• Voice transformation styles</li>
+                  <li>• Custom voice models</li>
+                  <li>• Extended SSML 1.1</li>
+                </ul>
+              </div>
+            </div>
+            <div className="mt-4 bg-gray-50 border-l-4 border-gray-400 p-4">
+              <h4 className="font-semibold text-gray-900 mb-2">📝 Platform Selection Guide</h4>
+              <ul className="text-sm space-y-1 text-gray-700">
+                <li>• <strong>Azure:</strong> Best for commercial deployments, robust style support</li>
+                <li>• <strong>Google:</strong> High naturalness, good for research, free tier available</li>
+                <li>• <strong>Sesame:</strong> Maximum control, academic research, custom models</li>
+              </ul>
             </div>
           </div>
         </div>
