@@ -213,6 +213,7 @@ const ScenarioRefinementTool = () => {
   };
 
   const sendToProsodyAnnotation = (scenario: any) => {
+    console.log('Sending scenario to Prosody Annotation:', scenario);
     const savedData = loadFromStorage();
     const existingScenarios = savedData.prosodyAnnotation?.scenarios || [];
 
@@ -234,6 +235,8 @@ const ScenarioRefinementTool = () => {
       addedAt: new Date().toISOString()
     }];
 
+    console.log('Updated scenarios to save:', updatedScenarios);
+
     const currentProsody = savedData.prosodyAnnotation || {
       selectedPreset: 'neutral',
       customProsody: {},
@@ -247,6 +250,8 @@ const ScenarioRefinementTool = () => {
         scenarios: updatedScenarios
       }
     });
+
+    console.log('Scenarios saved to localStorage');
 
     alert('Scenario sent to Prosody Annotation! Navigate to the Prosody tool to annotate it.');
   };
