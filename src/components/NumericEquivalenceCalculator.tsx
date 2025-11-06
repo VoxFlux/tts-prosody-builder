@@ -63,25 +63,46 @@ const NumericEquivalenceCalculator = () => {
   const scenarios = {
     banking: {
       name: "Credit Card Selection",
-      description: "Annual cost comparison including fees and cashback",
+      description: "Expected annual value including fees, cashback, insurance, APR, bonus, and foreign transaction fees",
+      assumptions: {
+        annualSpend: 12000,
+        foreignTransactions: 1000,
+        insuranceClaimRate: 0.1,
+        insuranceYears: 5,
+        interestCharges: 500
+      },
       optionA: {
-        label: "Premium Card",
-        params: { annualFee: 49, cashbackRate: 1.0, avgSpending: 3000 },
-        formula: "annualFee - (avgSpending * cashbackRate / 100)",
-        display: "€49 - (€3000 × 1.0%) = €19 net annual cost"
+        label: "TravelPlus Card",
+        params: {
+          annualFee: 45,
+          cashbackRate: 1.5,
+          insuranceCoverage: 50000,
+          apr: 12.9,
+          welcomeBonus: 150,
+          foreignTransactionFee: 0
+        },
+        formula: "-annualFee + (annualSpend * cashbackRate / 100) + (insuranceCoverage * insuranceClaimRate / insuranceYears) + welcomeBonus - (foreignTransactions * foreignTransactionFee / 100) - (interestCharges * apr / 100)",
+        display: "Year 1: -€45 + (€12k × 1.5%) + (€50k × 0.1 ÷ 5) + €150 - (€1k × 0%) - (€500 × 12.9%) = €420"
       },
       optionB: {
-        label: "Classic Card",
-        params: { annualFee: 0, cashbackRate: 0.6, avgSpending: 3000 },
-        formula: "annualFee - (avgSpending * cashbackRate / 100)",
-        display: "€0 - (€3000 × 0.6%) = -€18 net annual benefit"
+        label: "CashRewards Card",
+        params: {
+          annualFee: 0,
+          cashbackRate: 2.0,
+          insuranceCoverage: 25000,
+          apr: 14.9,
+          welcomeBonus: 100,
+          foreignTransactionFee: 1.75
+        },
+        formula: "-annualFee + (annualSpend * cashbackRate / 100) + (insuranceCoverage * insuranceClaimRate / insuranceYears) + welcomeBonus - (foreignTransactions * foreignTransactionFee / 100) - (interestCharges * apr / 100)",
+        display: "Year 1: -€0 + (€12k × 2.0%) + (€25k × 0.1 ÷ 5) + €100 - (€1k × 1.75%) - (€500 × 14.9%) = €348"
       },
       realWorldData: [
-        { source: "Chase Sapphire", fee: 95, cashback: 1.25 },
-        { source: "Capital One Quicksilver", fee: 0, cashback: 1.5 },
-        { source: "Amex Blue Cash", fee: 0, cashback: 1.0 },
-        { source: "Citi Double Cash", fee: 0, cashback: 2.0 },
-        { source: "Bank of America Premium", fee: 95, cashback: 1.5 }
+        { source: "Chase Sapphire Reserve", fee: 550, cashback: 3.0, apr: 17.99 },
+        { source: "Capital One Venture X", fee: 395, cashback: 2.0, apr: 19.99 },
+        { source: "Amex Platinum", fee: 695, cashback: 1.0, apr: 16.99 },
+        { source: "Citi Premier", fee: 95, cashback: 1.0, apr: 17.99 },
+        { source: "Chase Freedom Unlimited", fee: 0, cashback: 1.5, apr: 17.99 }
       ]
     },
     insurance: {
@@ -177,10 +198,10 @@ const NumericEquivalenceCalculator = () => {
     }
   };
 
-  const calculateValue = (params: Record<string, number>, formula: string): number | null => {
+  const calculateValue = (params: Record<string, number>, formula: string, assumptions?: Record<string, number>): number | null => {
     try {
-      // Create a safe evaluation context
-      const context = { ...params };
+      // Create a safe evaluation context - merge params and assumptions
+      const context = { ...params, ...(assumptions || {}) };
       const result = eval(formula.replace(/([a-zA-Z_][a-zA-Z0-9_]*)/g, (match: string) => {
         return context.hasOwnProperty(match) ? String(context[match]) : match;
       }));
@@ -190,9 +211,9 @@ const NumericEquivalenceCalculator = () => {
     }
   };
 
-  const analyzeEquivalence = (scenario: { optionA: { params: Record<string, number>; formula: string }; optionB: { params: Record<string, number>; formula: string } }): Analysis | { error: string } => {
-    const valueA = calculateValue(scenario.optionA.params, scenario.optionA.formula);
-    const valueB = calculateValue(scenario.optionB.params, scenario.optionB.formula);
+  const analyzeEquivalence = (scenario: { assumptions?: Record<string, number>; optionA: { params: Record<string, number>; formula: string }; optionB: { params: Record<string, number>; formula: string } }): Analysis | { error: string } => {
+    const valueA = calculateValue(scenario.optionA.params, scenario.optionA.formula, scenario.assumptions);
+    const valueB = calculateValue(scenario.optionB.params, scenario.optionB.formula, scenario.assumptions);
 
     if (valueA === null || valueB === null) {
       return { error: "Cannot calculate values" };
@@ -422,6 +443,35 @@ const NumericEquivalenceCalculator = () => {
             )}
           </div>
         </div>
+
+        {/* Assumptions Section (for banking) */}
+        {activeScenario === 'banking' && currentScenario.assumptions && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded p-4 mb-6">
+            <h4 className="font-semibold text-yellow-900 mb-2">Calculation Assumptions:</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+              <div>
+                <span className="text-gray-600">Annual Spend:</span>
+                <span className="ml-2 font-semibold">€{currentScenario.assumptions.annualSpend.toLocaleString()}</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Foreign Transactions:</span>
+                <span className="ml-2 font-semibold">€{currentScenario.assumptions.foreignTransactions.toLocaleString()}/year</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Insurance Claim Rate:</span>
+                <span className="ml-2 font-semibold">{(currentScenario.assumptions.insuranceClaimRate * 100)}%</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Insurance Years:</span>
+                <span className="ml-2 font-semibold">{currentScenario.assumptions.insuranceYears} years</span>
+              </div>
+              <div>
+                <span className="text-gray-600">Interest Charges:</span>
+                <span className="ml-2 font-semibold">€{currentScenario.assumptions.interestCharges}/year</span>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Options Comparison */}
         <div className="grid md:grid-cols-2 gap-6 mb-6">
