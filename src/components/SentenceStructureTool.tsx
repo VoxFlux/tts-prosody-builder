@@ -10,6 +10,9 @@ const SentenceStructureStandardizer = () => {
       attribute1: '',
       attribute2: '',
       attribute3: '',
+      attribute4: '',
+      attribute5: '',
+      attribute6: '',
       tradeoff: '',
       availability: ''
     },
@@ -18,6 +21,9 @@ const SentenceStructureStandardizer = () => {
       attribute1: '',
       attribute2: '',
       attribute3: '',
+      attribute4: '',
+      attribute5: '',
+      attribute6: '',
       tradeoff: '',
       availability: ''
     }
@@ -28,34 +34,46 @@ const SentenceStructureStandardizer = () => {
     banking: {
       name: "Banking / Credit Cards",
       structure: [
-        "The [PRODUCT_NAME] has a [ATTRIBUTE_1] annual fee, offers [ATTRIBUTE_2] cashback on all purchases, and includes [ATTRIBUTE_3].",
-        "[TRADEOFF_STATEMENT].",
-        "Both cards provide online account management and mobile app access.",
-        "Which card would you prefer?"
+        "The [PRODUCT_NAME] has an annual fee of [ATTRIBUTE_1].",
+        "It offers [ATTRIBUTE_2] cashback on all purchases.",
+        "Travel insurance coverage is [ATTRIBUTE_3].",
+        "The APR is [ATTRIBUTE_4].",
+        "You'll receive a welcome bonus of [ATTRIBUTE_5].",
+        "[ATTRIBUTE_6]."
       ],
       example: {
         optionA: {
-          productName: "Premium Card",
-          attribute1: "€49",
-          attribute2: "1%",
-          attribute3: "comprehensive travel insurance with emergency assistance worldwide",
-          tradeoff: "Higher annual fee provides additional travel benefits",
-          availability: "available immediately"
+          productName: "TravelPlus Card",
+          attribute1: "forty-five euros",
+          attribute2: "one point five percent",
+          attribute3: "fifty thousand euros",
+          attribute4: "twelve point nine percent",
+          attribute5: "one hundred fifty euros",
+          attribute6: "There are no foreign transaction fees",
+          tradeoff: "",
+          availability: ""
         },
         optionB: {
-          productName: "Classic Card",
-          attribute1: "€0",
-          attribute2: "0.6%",
-          attribute3: "optional travel insurance available for purchase separately",
-          tradeoff: "No annual fee with slightly lower cashback rate",
-          availability: "available immediately"
+          productName: "CashRewards Card",
+          attribute1: "zero euros",
+          attribute2: "two percent",
+          attribute3: "twenty-five thousand euros",
+          attribute4: "fourteen point nine percent",
+          attribute5: "one hundred euros",
+          attribute6: "Foreign transaction fees are one point seven five percent",
+          tradeoff: "",
+          availability: ""
         }
       },
       guidelines: [
-        "Attribute 1: Always the fee (€X format)",
-        "Attribute 2: Always the cashback (X% format)",
-        "Attribute 3: Always the special benefit/insurance",
-        "Keep attribute order consistent across A and B"
+        "Attribute 1: Annual Fee (spell out numbers: 'forty-five euros' not '€45')",
+        "Attribute 2: Cashback Rate (spell out: 'one point five percent' not '1.5%')",
+        "Attribute 3: Travel Insurance Coverage (spell out: 'fifty thousand euros')",
+        "Attribute 4: APR (spell out: 'twelve point nine percent')",
+        "Attribute 5: Welcome Bonus (spell out: 'one hundred fifty euros')",
+        "Attribute 6: Foreign Transaction Fees (full sentence about fees)",
+        "Keep same sentence structure for both cards",
+        "Same number of sentences (6 total) for parity"
       ]
     },
     insurance: {
@@ -221,20 +239,23 @@ const SentenceStructureStandardizer = () => {
 
   const generateFromTemplate = (templateKey: string, inputs: any, option = 'A') => {
     const template = (templates as any)[templateKey];
-    const inputData = option === 'A' ? 
-      (inputs.optionA || inputs) : 
+    const inputData = option === 'A' ?
+      (inputs.optionA || inputs) :
       (inputs.optionB || inputs);
-    
+
     let text = template.structure.map((sentence: string) => {
       return sentence
         .replace('[PRODUCT_NAME]', inputData.productName || template.example[`option${option}`].productName)
         .replace('[ATTRIBUTE_1]', inputData.attribute1 || template.example[`option${option}`].attribute1)
         .replace('[ATTRIBUTE_2]', inputData.attribute2 || template.example[`option${option}`].attribute2)
         .replace('[ATTRIBUTE_3]', inputData.attribute3 || template.example[`option${option}`].attribute3)
-        .replace('[TRADEOFF_STATEMENT]', inputData.tradeoff || template.example[`option${option}`].tradeoff)
-        .replace('[AVAILABILITY]', inputData.availability || template.example[`option${option}`].availability);
+        .replace('[ATTRIBUTE_4]', inputData.attribute4 || template.example[`option${option}`].attribute4 || '')
+        .replace('[ATTRIBUTE_5]', inputData.attribute5 || template.example[`option${option}`].attribute5 || '')
+        .replace('[ATTRIBUTE_6]', inputData.attribute6 || template.example[`option${option}`].attribute6 || '')
+        .replace('[TRADEOFF_STATEMENT]', inputData.tradeoff || template.example[`option${option}`].tradeoff || '')
+        .replace('[AVAILABILITY]', inputData.availability || template.example[`option${option}`].availability || '');
     }).join(' ');
-    
+
     return text;
   };
 
@@ -289,6 +310,9 @@ const SentenceStructureStandardizer = () => {
         attribute1: '',
         attribute2: '',
         attribute3: '',
+        attribute4: '',
+        attribute5: '',
+        attribute6: '',
         tradeoff: '',
         availability: ''
       },
@@ -297,6 +321,9 @@ const SentenceStructureStandardizer = () => {
         attribute1: '',
         attribute2: '',
         attribute3: '',
+        attribute4: '',
+        attribute5: '',
+        attribute6: '',
         tradeoff: '',
         availability: ''
       }
@@ -575,18 +602,53 @@ const SentenceStructureStandardizer = () => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Tradeoff Statement
+                Attribute 4
               </label>
               <input
                 type="text"
-                value={customInputs.optionA.tradeoff}
+                value={customInputs.optionA.attribute4}
                 onChange={(e) => setCustomInputs({
                   ...customInputs,
-                  optionA: {...customInputs.optionA, tradeoff: e.target.value}
+                  optionA: {...customInputs.optionA, attribute4: e.target.value}
                 })}
-                placeholder={currentTemplate.example.optionA.tradeoff}
+                placeholder={currentTemplate.example.optionA.attribute4}
                 className="w-full px-3 py-2 border rounded text-sm"
               />
+              <p className="text-xs text-gray-500 mt-1">{currentTemplate.guidelines[3] || 'Attribute 4'}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Attribute 5
+              </label>
+              <input
+                type="text"
+                value={customInputs.optionA.attribute5}
+                onChange={(e) => setCustomInputs({
+                  ...customInputs,
+                  optionA: {...customInputs.optionA, attribute5: e.target.value}
+                })}
+                placeholder={currentTemplate.example.optionA.attribute5}
+                className="w-full px-3 py-2 border rounded text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">{currentTemplate.guidelines[4] || 'Attribute 5'}</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Attribute 6
+              </label>
+              <input
+                type="text"
+                value={customInputs.optionA.attribute6}
+                onChange={(e) => setCustomInputs({
+                  ...customInputs,
+                  optionA: {...customInputs.optionA, attribute6: e.target.value}
+                })}
+                placeholder={currentTemplate.example.optionA.attribute6}
+                className="w-full px-3 py-2 border rounded text-sm"
+              />
+              <p className="text-xs text-gray-500 mt-1">{currentTemplate.guidelines[5] || 'Attribute 6'}</p>
             </div>
 
             <hr className="my-6" />
@@ -658,16 +720,48 @@ const SentenceStructureStandardizer = () => {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-1">
-                Tradeoff Statement
+                Attribute 4
               </label>
               <input
                 type="text"
-                value={customInputs.optionB.tradeoff}
+                value={customInputs.optionB.attribute4}
                 onChange={(e) => setCustomInputs({
                   ...customInputs,
-                  optionB: {...customInputs.optionB, tradeoff: e.target.value}
+                  optionB: {...customInputs.optionB, attribute4: e.target.value}
                 })}
-                placeholder={currentTemplate.example.optionB.tradeoff}
+                placeholder={currentTemplate.example.optionB.attribute4}
+                className="w-full px-3 py-2 border rounded text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Attribute 5
+              </label>
+              <input
+                type="text"
+                value={customInputs.optionB.attribute5}
+                onChange={(e) => setCustomInputs({
+                  ...customInputs,
+                  optionB: {...customInputs.optionB, attribute5: e.target.value}
+                })}
+                placeholder={currentTemplate.example.optionB.attribute5}
+                className="w-full px-3 py-2 border rounded text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-1">
+                Attribute 6
+              </label>
+              <input
+                type="text"
+                value={customInputs.optionB.attribute6}
+                onChange={(e) => setCustomInputs({
+                  ...customInputs,
+                  optionB: {...customInputs.optionB, attribute6: e.target.value}
+                })}
+                placeholder={currentTemplate.example.optionB.attribute6}
                 className="w-full px-3 py-2 border rounded text-sm"
               />
             </div>
