@@ -53,12 +53,15 @@ This guide will help you set up Supabase for optional cloud sync functionality i
 -- Create the user_data table
 CREATE TABLE user_data (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL UNIQUE,
   data JSONB NOT NULL DEFAULT '{}'::jsonb,
   last_synced TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Add unique constraint if table already exists
+ALTER TABLE user_data ADD CONSTRAINT user_data_user_id_unique UNIQUE (user_id);
 
 -- Create an index on user_id for faster lookups
 CREATE INDEX idx_user_data_user_id ON user_data(user_id);

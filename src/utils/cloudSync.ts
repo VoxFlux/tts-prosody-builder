@@ -8,17 +8,50 @@ export interface SyncStatus {
 }
 
 /**
+ * Clean up duplicate rows, keeping only the most recent one
+ */
+const cleanupDuplicates = async (userId: string): Promise<void> => {
+  try {
+    // Get all rows for this user, ordered by most recent first
+    const { data: allRows } = await supabase
+      .from('user_data')
+      .select('id, updated_at')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false });
+
+    if (allRows && allRows.length > 1) {
+      // Keep the first (most recent), delete the rest
+      const idsToDelete = allRows.slice(1).map(row => row.id);
+
+      await supabase
+        .from('user_data')
+        .delete()
+        .in('id', idsToDelete);
+
+      console.log(`Cleaned up ${idsToDelete.length} duplicate rows`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up duplicates:', error);
+  }
+};
+
+/**
  * Sync local data to Supabase
  */
 export const syncToCloud = async (userId: string): Promise<{ success: boolean; error?: string }> => {
   try {
     const localData = loadFromStorage();
 
-    // First check if record exists
+    // Clean up any duplicate rows first
+    await cleanupDuplicates(userId);
+
+    // Check if record exists (should be only one now)
     const { data: existing } = await supabase
       .from('user_data')
       .select('id')
       .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     let error;
@@ -31,7 +64,7 @@ export const syncToCloud = async (userId: string): Promise<{ success: boolean; e
           last_synced: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq('user_id', userId);
+        .eq('id', existing.id);  // Use ID instead of user_id for safety
       error = result.error;
     } else {
       // Insert new record
@@ -63,10 +96,16 @@ export const syncToCloud = async (userId: string): Promise<{ success: boolean; e
  */
 export const syncFromCloud = async (userId: string): Promise<{ success: boolean; data?: PersistedData; error?: string }> => {
   try {
+    // Clean up any duplicate rows first
+    await cleanupDuplicates(userId);
+
+    // Get most recent row
     const { data, error } = await supabase
       .from('user_data')
-      .select('data')
+      .select('data, id, updated_at')
       .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (error) {
