@@ -269,13 +269,15 @@ const SentenceStructureStandardizer = () => {
     // Match spelled-out number patterns like "forty-five", "one point five percent", "fifty thousand euros"
     const lowerText = text.toLowerCase();
     const spelledOutPatterns: RegExp[] = [
-      // Compound numbers with hyphens: forty-five, twenty-three
-      /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(one|two|three|four|five|six|seven|eight|nine)\b/g,
-      // Decimal numbers: one point five, twelve point nine
+      // Decimal numbers FIRST: one point five, twelve point nine
       /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\s+point\s+(zero|one|two|three|four|five|six|seven|eight|nine)+/g,
-      // Large numbers: fifty thousand, one hundred
-      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\s+(thousand|hundred|million)/g,
-      // Single number words at word boundaries
+      // Three-word compounds: "one hundred fifty", "two hundred thirty"
+      /\b(one|two|three|four|five|six|seven|eight|nine)\s+hundred\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g,
+      // Two-word compounds with thousand/hundred/million: "fifty thousand", "one hundred"
+      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\s+(thousand|hundred|million)\b/g,
+      // Hyphenated numbers: forty-five, twenty-three
+      /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(one|two|three|four|five|six|seven|eight|nine)\b/g,
+      // Single number words LAST (only if not part of compound)
       /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g
     ];
 
