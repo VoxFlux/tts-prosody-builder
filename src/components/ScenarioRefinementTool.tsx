@@ -253,6 +253,10 @@ const ScenarioRefinementTool = () => {
 
     console.log('Scenarios saved to localStorage');
 
+    // Dispatch custom event to notify Prosody Annotation Tool
+    window.dispatchEvent(new Event('prosodyScenariosUpdated'));
+    console.log('Dispatched prosodyScenariosUpdated event');
+
     alert('Scenario sent to Prosody Annotation! Navigate to the Prosody tool to annotate it.');
   };
 
