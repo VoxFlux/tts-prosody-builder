@@ -5,7 +5,7 @@ import { loadFromStorage } from '../utils/persistence';
 const ProsodyAnnotationTool = () => {
   const [activeTab, setActiveTab] = useState('presets');
   const [selectedPreset, setSelectedPreset] = useState('authoritative');
-  const [selectedPlatform, setSelectedPlatform] = useState<'azure' | 'google' | 'sesame'>('azure');
+  const [selectedPlatform, setSelectedPlatform] = useState<'azure' | 'google' | 'elevenlabs'>('azure');
   const [scenarios, setScenarios] = useState<any[]>([]);
   const [selectedScenario, setSelectedScenario] = useState<any>(null);
   const [selectedOption, setSelectedOption] = useState<'A' | 'B'>('A');
@@ -252,60 +252,57 @@ const ProsodyAnnotationTool = () => {
     return ssml;
   };
 
-  const generateSesameSSML = (text: string, preset: string) => {
+  const generateElevenLabsPrompt = (text: string, preset: string) => {
     const params = (presets as any)[preset].parameters;
 
-    let ssml = `<speak version="1.1" xml:lang="en-US"
-       xmlns:sesame="http://csm.sesame/ssml/extensions">
-  <voice name="en-US-Sesame-Male-01">
-    <break time="200ms"/>
-`;
+    // ElevenLabs is prompt-based, so we generate voice guidance prompts
+    let promptInstructions = '';
 
-    // Add voice transformation for specific styles
-    const transformationType = preset === 'authoritative' ? 'authoritative'
-                              : preset === 'friendly' ? 'friendly'
-                              : preset === 'hesitant' ? 'uncertain'
-                              : preset === 'confident' ? 'confident'
-                              : null;
+    // Style description
+    const styleDescriptions: Record<string, string> = {
+      neutral: 'Speak in a neutral, conversational tone with natural delivery.',
+      authoritative: 'Speak with authority and confidence. Use a lower pitch, slower pace, and clear articulation. Sound like a professional expert.',
+      friendly: 'Speak in a warm, friendly tone with higher pitch variation. Sound approachable and enthusiastic.',
+      urgent: 'Speak with urgency and faster pace. Emphasize key points strongly.',
+      hesitant: 'Speak with hesitation and uncertainty. Use pauses and slight pitch rises at the end of phrases.',
+      confident: 'Speak with strong confidence and assurance. Use stable pitch and moderate, controlled pace.'
+    };
 
-    if (transformationType) {
-      const strength = preset === 'authoritative' ? '0.75' : '0.6';
-      ssml += `    <sesame:voice-transformation type="${transformationType}" strength="${strength}">\n`;
+    promptInstructions += `VOICE STYLE: ${styleDescriptions[preset] || styleDescriptions.neutral}\n\n`;
+
+    // Prosodic parameters as natural language
+    if (params.pitch.shift < -100) {
+      promptInstructions += `PITCH: Lower your pitch significantly to sound more authoritative.\n`;
+    } else if (params.pitch.shift > 100) {
+      promptInstructions += `PITCH: Raise your pitch to sound more friendly and approachable.\n`;
     }
 
-    ssml += `      <prosody`;
-
-    // Pitch in Hz offset
-    if (params.pitch.shift !== 0) {
-      const hzOffset = Math.round(params.pitch.shift / 3); // Rough conversion
-      ssml += ` pitch="${hzOffset > 0 ? '+' : ''}${hzOffset}Hz"`;
+    if (params.rate.global < -10) {
+      promptInstructions += `PACE: Speak slower than normal to emphasize importance and clarity.\n`;
+    } else if (params.rate.global > 10) {
+      promptInstructions += `PACE: Speak faster to convey urgency.\n`;
     }
 
-    // Rate as multiplier
-    if (params.rate.global !== 0) {
-      const rateMultiplier = (1 + params.rate.global / 100).toFixed(2);
-      ssml += ` rate="${rateMultiplier}"`;
+    if (params.volume.level > 3) {
+      promptInstructions += `VOLUME: Speak with strong, clear emphasis on key phrases.\n`;
     }
 
-    // Volume in dB
-    if (params.volume.level !== 0) {
-      ssml += ` volume="${params.volume.level > 0 ? '+' : ''}${params.volume.level}dB"`;
+    if (params.pauses && params.pauses.length > 0) {
+      promptInstructions += `PAUSES: Take deliberate pauses before and after important numbers or key information.\n`;
     }
 
-    // Pitch range
-    const rangeType = params.pitch.range < -10 ? 'narrow' : params.pitch.range > 10 ? 'wide' : 'normal';
-    ssml += ` range="${rangeType}"`;
+    promptInstructions += `\nTEXT TO SPEAK:\n"${text}"`;
 
-    ssml += `>\n        ${text}\n      </prosody>\n`;
+    return `ElevenLabs Voice Configuration:
 
-    if (transformationType) {
-      ssml += `    </sesame:voice-transformation>\n`;
-    }
+${promptInstructions}
 
-    ssml += `    <break time="200ms"/>
-  </voice>
-</speak>`;
-    return ssml;
+NOTES:
+- Use this prompt with ElevenLabs API's "voice_settings" or "style" parameter
+- Recommended voice: Adam (authoritative), Bella (friendly), or Sam (neutral)
+- Stability: ${preset === 'authoritative' || preset === 'confident' ? '0.75 (high)' : '0.5 (moderate)'}
+- Similarity Boost: 0.75
+- Style Exaggeration: ${preset === 'neutral' ? '0' : '0.5'}`;
   };
 
   const generateSSML = (text: string, preset: string, platform: string = selectedPlatform) => {
@@ -314,8 +311,8 @@ const ProsodyAnnotationTool = () => {
         return generateAzureSSML(text, preset);
       case 'google':
         return generateGoogleSSML(text, preset);
-      case 'sesame':
-        return generateSesameSSML(text, preset);
+      case 'elevenlabs':
+        return generateElevenLabsPrompt(text, preset);
       default:
         return generateAzureSSML(text, preset);
     }
@@ -739,14 +736,14 @@ ACOUSTIC VALIDATION TARGETS:
                   Google Cloud TTS
                 </button>
                 <button
-                  onClick={() => setSelectedPlatform('sesame')}
+                  onClick={() => setSelectedPlatform('elevenlabs')}
                   className={`px-4 py-2 rounded text-sm font-medium ${
-                    selectedPlatform === 'sesame'
+                    selectedPlatform === 'elevenlabs'
                       ? 'bg-purple-600 text-white'
                       : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                   }`}
                 >
-                  CSM Sesame TTS
+                  ElevenLabs
                 </button>
               </div>
               <p className="text-xs text-gray-500 mt-2">
@@ -757,7 +754,7 @@ ACOUSTIC VALIDATION TARGETS:
             <div className="bg-gray-900 rounded-lg p-4">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-300 text-sm">
-                  Generated SSML ({selectedPlatform === 'azure' ? 'Azure' : selectedPlatform === 'google' ? 'Google' : 'Sesame'}):
+                  {selectedPlatform === 'elevenlabs' ? 'ElevenLabs Voice Prompt:' : `Generated SSML (${selectedPlatform === 'azure' ? 'Azure' : 'Google'}):`}
                 </h3>
                 <button
                   onClick={() => copyToClipboard(generateSSML(inputText, selectedPreset, selectedPlatform))}
@@ -795,12 +792,12 @@ ACOUSTIC VALIDATION TARGETS:
                 </ul>
               </div>
               <div className="bg-purple-50 border-l-4 border-purple-400 p-4">
-                <h4 className="font-semibold text-purple-900 mb-2">✓ CSM Sesame TTS</h4>
+                <h4 className="font-semibold text-purple-900 mb-2">✓ ElevenLabs</h4>
                 <ul className="text-sm space-y-1 text-purple-800">
-                  <li>• Direct Hz/dB control</li>
-                  <li>• Voice transformation styles</li>
-                  <li>• Custom voice models</li>
-                  <li>• Extended SSML 1.1</li>
+                  <li>• Prompt-based voice control</li>
+                  <li>• Natural voice cloning</li>
+                  <li>• Multiple voice models</li>
+                  <li>• Emotion and style tuning</li>
                 </ul>
               </div>
             </div>
@@ -809,7 +806,7 @@ ACOUSTIC VALIDATION TARGETS:
               <ul className="text-sm space-y-1 text-gray-700">
                 <li>• <strong>Azure:</strong> Best for commercial deployments, robust style support</li>
                 <li>• <strong>Google:</strong> High naturalness, good for research, free tier available</li>
-                <li>• <strong>Sesame:</strong> Maximum control, academic research, custom models</li>
+                <li>• <strong>ElevenLabs:</strong> State-of-the-art naturalness, prompt-based control, voice cloning</li>
               </ul>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { AlertCircle, CheckCircle, Edit, Save, X, Send } from 'lucide-react';
+import { AlertCircle, CheckCircle, Edit, Save, X, Send, Download } from 'lucide-react';
 import { loadFromStorage, createAutoSave, saveToStorage } from '../utils/persistence';
 
 const ScenarioRefinementTool = () => {
@@ -17,7 +17,9 @@ const ScenarioRefinementTool = () => {
         attributes: { fee: 0, cashback: 0.6, feature: "optional insurance" }
       },
       status: "draft",
-      notes: ""
+      notes: "",
+      manipulationTarget: "A",
+      variantType: "Balanced"
     },
     {
       id: 2,
@@ -32,7 +34,9 @@ const ScenarioRefinementTool = () => {
         attributes: { monthly: 20, deductible: 500, coverage: "full after deductible" }
       },
       status: "draft",
-      notes: ""
+      notes: "",
+      manipulationTarget: "A",
+      variantType: "Balanced"
     },
     {
       id: 3,
@@ -47,7 +51,9 @@ const ScenarioRefinementTool = () => {
         attributes: { data: 60, price: 18, feature: "5G standard" }
       },
       status: "draft",
-      notes: ""
+      notes: "",
+      manipulationTarget: "B",
+      variantType: "Balanced"
     },
     {
       id: 4,
@@ -62,7 +68,9 @@ const ScenarioRefinementTool = () => {
         attributes: { rate: "0.25-0.29", fee: 0, type: "variable quarterly" }
       },
       status: "draft",
-      notes: ""
+      notes: "",
+      manipulationTarget: "A",
+      variantType: "Balanced"
     },
     {
       id: 5,
@@ -77,7 +85,9 @@ const ScenarioRefinementTool = () => {
         attributes: { price: 0, channels: 0, commitment: "lose data" }
       },
       status: "draft",
-      notes: ""
+      notes: "",
+      manipulationTarget: "A",
+      variantType: "Balanced"
     }
   ]);
 
@@ -116,11 +126,33 @@ const ScenarioRefinementTool = () => {
   const analyzeText = (text: string) => {
     const sentences = text.split('.').filter((s: string) => s.trim().length > 0);
     const words = text.split(/\s+/).filter((w: string) => w.length > 0);
-    const numbers = (text.match(/\d+(\.\d+)?/g) || []).length;
-    
+
+    // Count numeric numbers (€45, 1.5%, etc.)
+    const numericNumbers = (text.match(/€?\d+(\.\d+)?%?/g) || []).length;
+
+    // Count hyphenated spelled-out numbers (forty-five, one-point-five, twenty-five-thousand, etc.)
+    const lowerText = text.toLowerCase();
+    const hyphenatedNumbers = (lowerText.match(/\b[a-z]+-[a-z-]+\b/g) || []).length;
+
+    // Count single number words (zero, one, two, ... ninety) that aren't part of hyphenated numbers
+    const singleNumberWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+                                'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+                                'seventeen', 'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty',
+                                'sixty', 'seventy', 'eighty', 'ninety'];
+
+    // Remove all hyphenated words first, then count single number words in what remains
+    const textWithoutHyphenated = lowerText.replace(/\b[a-z]+-[a-z-]+\b/g, '');
+    const singleNumbers = singleNumberWords.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      const matches = textWithoutHyphenated.match(regex);
+      return count + (matches ? matches.length : 0);
+    }, 0);
+
+    const totalNumbers = numericNumbers + hyphenatedNumbers + singleNumbers;
+
     // Check for persuasive language
     const persuasiveWords = ['best', 'better', 'premium', 'superior', 'excellent', 'perfect', 'ideal', 'recommended', 'popular', 'most', 'guaranteed', 'exclusive'];
-    const foundPersuasive = persuasiveWords.filter(word => 
+    const foundPersuasive = persuasiveWords.filter(word =>
       text.toLowerCase().includes(word)
     );
 
@@ -128,7 +160,7 @@ const ScenarioRefinementTool = () => {
       sentences: sentences.length,
       words: words.length,
       characters: text.length,
-      numbers: numbers,
+      numbers: totalNumbers,
       persuasiveWords: foundPersuasive,
       avgWordLength: (text.replace(/[^a-zA-Z]/g, '').length / words.length).toFixed(1)
     };
@@ -264,6 +296,59 @@ const ScenarioRefinementTool = () => {
     if (confirm('Are you sure you want to clear all scenarios? This action cannot be undone.')) {
       setScenarios([]);
     }
+  };
+
+  const updateManipulationTarget = (id: number, target: "A" | "B") => {
+    setScenarios(scenarios.map(s =>
+      s.id === id ? { ...s, manipulationTarget: target } : s
+    ));
+  };
+
+  const updateVariantType = (id: number, variantType: "Balanced" | "Slightly-Worse") => {
+    setScenarios(scenarios.map(s =>
+      s.id === id ? { ...s, variantType } : s
+    ));
+  };
+
+  const exportApprovedScenarios = () => {
+    const approved = scenarios.filter(s => s.status === "approved");
+
+    if (approved.length === 0) {
+      alert('No approved scenarios to export. Please approve at least one scenario first.');
+      return;
+    }
+
+    // Format for export
+    const exportData = approved.map(s => ({
+      id: s.id,
+      domain: s.domain,
+      context: s.context,
+      manipulationTarget: s.manipulationTarget || "A",
+      variantType: s.variantType || "Balanced",
+      optionA: s.optionA.text,
+      optionB: s.optionB.text,
+      attributes: {
+        optionA: s.optionA.attributes,
+        optionB: s.optionB.attributes
+      },
+      notes: s.notes
+    }));
+
+    // Create JSON file
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+
+    // Download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `approved-scenarios-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert(`Successfully exported ${approved.length} approved scenario(s)!`);
   };
 
   return (
@@ -402,6 +487,71 @@ const ScenarioRefinementTool = () => {
                         </ul>
                       </div>
                     )}
+
+                    {/* Prosody Manipulation Settings */}
+                    <div className="grid md:grid-cols-2 gap-4 mb-4 p-4 bg-purple-50 border border-purple-200 rounded">
+                      <div>
+                        <label className="block text-sm font-semibold text-purple-900 mb-2">
+                          Manipulation Target (Authoritative Prosody)
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateManipulationTarget(scenario.id, "A")}
+                            className={`px-4 py-2 rounded text-sm font-medium transition-colors flex-1 ${
+                              (scenario.manipulationTarget || "A") === "A"
+                                ? "bg-purple-600 text-white"
+                                : "bg-white text-purple-700 border border-purple-300 hover:bg-purple-100"
+                            }`}
+                          >
+                            Card A
+                          </button>
+                          <button
+                            onClick={() => updateManipulationTarget(scenario.id, "B")}
+                            className={`px-4 py-2 rounded text-sm font-medium transition-colors flex-1 ${
+                              (scenario.manipulationTarget || "A") === "B"
+                                ? "bg-purple-600 text-white"
+                                : "bg-white text-purple-700 border border-purple-300 hover:bg-purple-100"
+                            }`}
+                          >
+                            Card B
+                          </button>
+                        </div>
+                        <p className="text-xs text-purple-700 mt-1">
+                          Which card will have authoritative prosody applied
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-semibold text-purple-900 mb-2">
+                          Variant Type
+                        </label>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateVariantType(scenario.id, "Balanced")}
+                            className={`px-4 py-2 rounded text-sm font-medium transition-colors flex-1 ${
+                              (scenario.variantType || "Balanced") === "Balanced"
+                                ? "bg-purple-600 text-white"
+                                : "bg-white text-purple-700 border border-purple-300 hover:bg-purple-100"
+                            }`}
+                          >
+                            Balanced
+                          </button>
+                          <button
+                            onClick={() => updateVariantType(scenario.id, "Slightly-Worse")}
+                            className={`px-4 py-2 rounded text-sm font-medium transition-colors flex-1 ${
+                              (scenario.variantType || "Balanced") === "Slightly-Worse"
+                                ? "bg-purple-600 text-white"
+                                : "bg-white text-purple-700 border border-purple-300 hover:bg-purple-100"
+                            }`}
+                          >
+                            Slightly-Worse
+                          </button>
+                        </div>
+                        <p className="text-xs text-purple-700 mt-1">
+                          Equal expected value vs dominated option
+                        </p>
+                      </div>
+                    </div>
 
                     <div className="flex gap-2 flex-wrap">
                       <button
@@ -580,6 +730,18 @@ const ScenarioRefinementTool = () => {
               </div>
               <div className="text-sm text-gray-700">Not Reviewed</div>
             </div>
+          </div>
+
+          {/* Export Button */}
+          <div className="mb-6 flex justify-center">
+            <button
+              onClick={exportApprovedScenarios}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold shadow-md transition-colors flex items-center gap-2"
+              disabled={scenarios.filter(s => s.status === "approved").length === 0}
+            >
+              <Download size={20} />
+              Export Approved Scenarios ({scenarios.filter(s => s.status === "approved").length})
+            </button>
           </div>
 
           <div className="space-y-4">
