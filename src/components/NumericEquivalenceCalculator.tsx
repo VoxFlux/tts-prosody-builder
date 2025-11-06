@@ -223,7 +223,8 @@ const NumericEquivalenceCalculator = () => {
   };
 
   const startEditing = () => {
-    const currentScenario = (scenarios as any)[activeScenario];
+    // Load from scenariosData (edited values) if available, otherwise fall back to default scenarios
+    const currentScenario = scenariosData?.[activeScenario] || (scenarios as any)[activeScenario];
     setEditableParams({
       optionA: { ...currentScenario.optionA.params },
       optionB: { ...currentScenario.optionB.params }
