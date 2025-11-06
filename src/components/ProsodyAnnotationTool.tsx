@@ -13,19 +13,31 @@ const ProsodyAnnotationTool = () => {
     "The Premium Card has a €49 annual fee, offers 1% cashback on all purchases, and includes comprehensive travel insurance with emergency assistance worldwide."
   );
 
-  // Load scenarios from storage
-  useEffect(() => {
+  // Function to load scenarios from storage
+  const loadScenarios = () => {
     const savedData = loadFromStorage();
     if (savedData.prosodyAnnotation?.scenarios) {
       const loadedScenarios = savedData.prosodyAnnotation.scenarios;
       setScenarios(loadedScenarios);
-      // Auto-select the first scenario if available
+      // Auto-select the first scenario if available and none is selected
       if (loadedScenarios.length > 0 && !selectedScenario) {
         const firstScenario = loadedScenarios[0];
         setSelectedScenario(firstScenario);
         setInputText(firstScenario.optionA);
       }
     }
+  };
+
+  // Load scenarios on mount and set up polling for updates
+  useEffect(() => {
+    loadScenarios();
+
+    // Check for new scenarios every 2 seconds
+    const interval = setInterval(() => {
+      loadScenarios();
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, []);
 
   // Handle scenario selection
@@ -583,7 +595,15 @@ ACOUSTIC VALIDATION TARGETS:
             {/* Scenario Selector */}
             {scenarios.length > 0 ? (
               <>
-                <h3 className="font-semibold text-gray-800 mb-3">Select Scenario and Option:</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-800">Select Scenario and Option:</h3>
+                  <button
+                    onClick={loadScenarios}
+                    className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+                  >
+                    🔄 Refresh Scenarios
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 gap-3 mb-6">
                   {scenarios.map((scenario: any) => (
                     <div key={scenario.id} className={`p-4 rounded border-2 transition-all ${
@@ -648,9 +668,17 @@ ACOUSTIC VALIDATION TARGETS:
               </>
             ) : (
               <div className="mb-6 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-                <p className="text-yellow-800">
-                  <strong>No scenarios available.</strong> Go to the Text Review tool to approve scenarios and send them here.
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-yellow-800">
+                    <strong>No scenarios available.</strong> Go to the Text Review tool to approve scenarios and send them here.
+                  </p>
+                  <button
+                    onClick={loadScenarios}
+                    className="px-3 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors whitespace-nowrap"
+                  >
+                    🔄 Check for Scenarios
+                  </button>
+                </div>
               </div>
             )}
 
