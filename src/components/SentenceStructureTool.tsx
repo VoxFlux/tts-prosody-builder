@@ -45,10 +45,10 @@ const SentenceStructureStandardizer = () => {
         optionA: {
           productName: "TravelPlus Card",
           attribute1: "forty-five euros",
-          attribute2: "one point five percent",
-          attribute3: "fifty thousand euros",
-          attribute4: "twelve point nine percent",
-          attribute5: "one hundred fifty euros",
+          attribute2: "one-point-five percent",
+          attribute3: "fifty-thousand euros",
+          attribute4: "twelve-point-nine percent",
+          attribute5: "one-hundred-fifty euros",
           attribute6: "There are no foreign transaction fees",
           tradeoff: "",
           availability: ""
@@ -57,23 +57,24 @@ const SentenceStructureStandardizer = () => {
           productName: "CashRewards Card",
           attribute1: "zero euros",
           attribute2: "two percent",
-          attribute3: "twenty-five thousand euros",
-          attribute4: "fourteen point nine percent",
-          attribute5: "one hundred euros",
-          attribute6: "Foreign transaction fees are one point seven five percent",
+          attribute3: "twenty-five-thousand euros",
+          attribute4: "fourteen-point-nine percent",
+          attribute5: "one-hundred euros",
+          attribute6: "Foreign transaction fees are one-point-seven-five percent",
           tradeoff: "",
           availability: ""
         }
       },
       guidelines: [
-        "Attribute 1: Annual Fee (spell out numbers: 'forty-five euros' not '€45')",
-        "Attribute 2: Cashback Rate (spell out: 'one point five percent' not '1.5%')",
-        "Attribute 3: Travel Insurance Coverage (spell out: 'fifty thousand euros')",
-        "Attribute 4: APR (spell out: 'twelve point nine percent')",
-        "Attribute 5: Welcome Bonus (spell out: 'one hundred fifty euros')",
-        "Attribute 6: Foreign Transaction Fees (full sentence about fees)",
+        "Attribute 1: Annual Fee (hyphenate multi-word numbers: 'forty-five euros' not '€45')",
+        "Attribute 2: Cashback Rate (hyphenate decimals: 'one-point-five percent' not '1.5%')",
+        "Attribute 3: Travel Insurance Coverage (hyphenate: 'fifty-thousand euros')",
+        "Attribute 4: APR (hyphenate decimals: 'twelve-point-nine percent')",
+        "Attribute 5: Welcome Bonus (hyphenate: 'one-hundred-fifty euros')",
+        "Attribute 6: Foreign Transaction Fees (full sentence, hyphenate any numbers)",
         "Keep same sentence structure for both cards",
-        "Same number of sentences (6 total) for parity"
+        "Same number of sentences (6 total) for parity",
+        "Use hyphens for all multi-word numbers to ensure accurate counting"
       ]
     },
     insurance: {
@@ -266,45 +267,25 @@ const SentenceStructureStandardizer = () => {
     // Count numeric numbers (€45, 1.5%, etc.)
     const numericNumbers = (text.match(/€?\d+(\.\d+)?%?/g) || []).length;
 
-    // Match spelled-out number patterns like "forty-five", "one point five percent", "fifty thousand euros"
+    // Count hyphenated spelled-out numbers (forty-five, one-point-five, twenty-five-thousand, etc.)
     const lowerText = text.toLowerCase();
-    const spelledOutPatterns: RegExp[] = [
-      // Decimal numbers FIRST: one point five, twelve point nine
-      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\s+point\s+(zero|one|two|three|four|five|six|seven|eight|nine)+/g,
-      // Three-word compounds: "one hundred fifty", "two hundred thirty"
-      /\b(one|two|three|four|five|six|seven|eight|nine)\s+hundred\s+(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g,
-      // Two-word compounds with thousand/hundred/million: "fifty thousand", "one hundred"
-      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\s+(thousand|hundred|million)\b/g,
-      // Hyphenated numbers: forty-five, twenty-three
-      /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(one|two|three|four|five|six|seven|eight|nine)\b/g,
-      // Single number words LAST (only if not part of compound)
-      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g
-    ];
+    const hyphenatedNumbers = (lowerText.match(/\b[a-z]+-[a-z-]+\b/g) || []).length;
 
-    let spelledOutCount = 0;
-    const matchedRanges: Array<[number, number]> = [];
+    // Count single number words (zero, one, two, ... ninety) that aren't part of hyphenated numbers
+    const singleNumberWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+                                'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+                                'seventeen', 'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty',
+                                'sixty', 'seventy', 'eighty', 'ninety'];
 
-    spelledOutPatterns.forEach(pattern => {
-      const matches = [...lowerText.matchAll(pattern)];
-      matches.forEach(match => {
-        if (match.index !== undefined) {
-          const start = match.index;
-          const end = start + match[0].length;
+    // Remove all hyphenated words first, then count single number words in what remains
+    const textWithoutHyphenated = lowerText.replace(/\b[a-z]+-[a-z-]+\b/g, '');
+    const singleNumbers = singleNumberWords.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      const matches = textWithoutHyphenated.match(regex);
+      return count + (matches ? matches.length : 0);
+    }, 0);
 
-          // Check if this range overlaps with already matched ranges
-          const overlaps = matchedRanges.some(([s, e]) =>
-            (start >= s && start < e) || (end > s && end <= e) || (start <= s && end >= e)
-          );
-
-          if (!overlaps) {
-            matchedRanges.push([start, end]);
-            spelledOutCount++;
-          }
-        }
-      });
-    });
-
-    const totalNumbers = numericNumbers + spelledOutCount;
+    const totalNumbers = numericNumbers + hyphenatedNumbers + singleNumbers;
 
     return {
       sentenceCount: sentences.length,
