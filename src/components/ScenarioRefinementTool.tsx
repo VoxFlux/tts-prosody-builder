@@ -116,11 +116,33 @@ const ScenarioRefinementTool = () => {
   const analyzeText = (text: string) => {
     const sentences = text.split('.').filter((s: string) => s.trim().length > 0);
     const words = text.split(/\s+/).filter((w: string) => w.length > 0);
-    const numbers = (text.match(/\d+(\.\d+)?/g) || []).length;
-    
+
+    // Count numeric numbers (€45, 1.5%, etc.)
+    const numericNumbers = (text.match(/€?\d+(\.\d+)?%?/g) || []).length;
+
+    // Count hyphenated spelled-out numbers (forty-five, one-point-five, twenty-five-thousand, etc.)
+    const lowerText = text.toLowerCase();
+    const hyphenatedNumbers = (lowerText.match(/\b[a-z]+-[a-z-]+\b/g) || []).length;
+
+    // Count single number words (zero, one, two, ... ninety) that aren't part of hyphenated numbers
+    const singleNumberWords = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+                                'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+                                'seventeen', 'eighteen', 'nineteen', 'twenty', 'thirty', 'forty', 'fifty',
+                                'sixty', 'seventy', 'eighty', 'ninety'];
+
+    // Remove all hyphenated words first, then count single number words in what remains
+    const textWithoutHyphenated = lowerText.replace(/\b[a-z]+-[a-z-]+\b/g, '');
+    const singleNumbers = singleNumberWords.reduce((count, word) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'g');
+      const matches = textWithoutHyphenated.match(regex);
+      return count + (matches ? matches.length : 0);
+    }, 0);
+
+    const totalNumbers = numericNumbers + hyphenatedNumbers + singleNumbers;
+
     // Check for persuasive language
     const persuasiveWords = ['best', 'better', 'premium', 'superior', 'excellent', 'perfect', 'ideal', 'recommended', 'popular', 'most', 'guaranteed', 'exclusive'];
-    const foundPersuasive = persuasiveWords.filter(word => 
+    const foundPersuasive = persuasiveWords.filter(word =>
       text.toLowerCase().includes(word)
     );
 
@@ -128,7 +150,7 @@ const ScenarioRefinementTool = () => {
       sentences: sentences.length,
       words: words.length,
       characters: text.length,
-      numbers: numbers,
+      numbers: totalNumbers,
       persuasiveWords: foundPersuasive,
       avgWordLength: (text.replace(/[^a-zA-Z]/g, '').length / words.length).toFixed(1)
     };
