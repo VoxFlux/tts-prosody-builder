@@ -253,56 +253,164 @@ const ProsodyAnnotationTool = () => {
   };
 
   const generateElevenLabsPrompt = (text: string, preset: string) => {
-    const params = (presets as any)[preset].parameters;
-
-    // ElevenLabs is prompt-based, so we generate voice guidance prompts
-    let promptInstructions = '';
-
-    // Style description
-    const styleDescriptions: Record<string, string> = {
-      neutral: 'Speak in a neutral, conversational tone with natural delivery.',
-      authoritative: 'Speak with authority and confidence. Use a lower pitch, slower pace, and clear articulation. Sound like a professional expert.',
-      friendly: 'Speak in a warm, friendly tone with higher pitch variation. Sound approachable and enthusiastic.',
-      urgent: 'Speak with urgency and faster pace. Emphasize key points strongly.',
-      hesitant: 'Speak with hesitation and uncertainty. Use pauses and slight pitch rises at the end of phrases.',
-      confident: 'Speak with strong confidence and assurance. Use stable pitch and moderate, controlled pace.'
+    // Map prosody presets to ElevenLabs voice settings
+    const voiceSettings: Record<string, any> = {
+      neutral: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+        style: 0,
+        use_speaker_boost: true,
+        speed: 1.0
+      },
+      authoritative: {
+        stability: 0.75,  // High stability for consistent, controlled delivery
+        similarity_boost: 0.75,
+        style: 0.5,  // Moderate style exaggeration for authority
+        use_speaker_boost: true,
+        speed: 0.85  // Slower for emphasis (-15% matches params)
+      },
+      friendly: {
+        stability: 0.4,  // Lower stability for more variation
+        similarity_boost: 0.75,
+        style: 0.6,  // Higher style for expressiveness
+        use_speaker_boost: true,
+        speed: 1.0
+      },
+      urgent: {
+        stability: 0.6,
+        similarity_boost: 0.75,
+        style: 0.7,  // High style for urgency
+        use_speaker_boost: true,
+        speed: 1.15  // Faster for urgency (+15%)
+      },
+      hesitant: {
+        stability: 0.3,  // Low stability for uncertainty
+        similarity_boost: 0.75,
+        style: 0.4,
+        use_speaker_boost: true,
+        speed: 0.95  // Slightly slower with pauses
+      },
+      confident: {
+        stability: 0.75,  // High stability for confidence
+        similarity_boost: 0.75,
+        style: 0.5,
+        use_speaker_boost: true,
+        speed: 0.92  // Moderate, controlled pace (-8%)
+      }
     };
 
-    promptInstructions += `VOICE STYLE: ${styleDescriptions[preset] || styleDescriptions.neutral}\n\n`;
+    const settings = voiceSettings[preset] || voiceSettings.neutral;
 
-    // Prosodic parameters as natural language
-    if (params.pitch.shift < -100) {
-      promptInstructions += `PITCH: Lower your pitch significantly to sound more authoritative.\n`;
-    } else if (params.pitch.shift > 100) {
-      promptInstructions += `PITCH: Raise your pitch to sound more friendly and approachable.\n`;
+    // Add SSML break tags for pauses based on preset
+    let textWithSSML = text;
+
+    // Add pauses before key numeric values for authoritative/confident presets
+    if (preset === 'authoritative' || preset === 'confident') {
+      // Add 350ms pause before numbers (matching Azure implementation)
+      textWithSSML = text.replace(/(\d+[-.]?\d*\s*(?:euros|percent|thousand))/gi,
+        '<break time="0.35s" />$1');
     }
 
-    if (params.rate.global < -10) {
-      promptInstructions += `PACE: Speak slower than normal to emphasize importance and clarity.\n`;
-    } else if (params.rate.global > 10) {
-      promptInstructions += `PACE: Speak faster to convey urgency.\n`;
+    // Add pauses for hesitant preset
+    if (preset === 'hesitant') {
+      // Add short pauses to create hesitation
+      textWithSSML = text.replace(/\./g, '...<break time="0.2s" />');
     }
 
-    if (params.volume.level > 3) {
-      promptInstructions += `VOLUME: Speak with strong, clear emphasis on key phrases.\n`;
-    }
+    // Recommended model and voice based on preset
+    const modelRecommendations: Record<string, { model: string; voice: string; reason: string }> = {
+      neutral: {
+        model: "eleven_flash_v2_5",
+        voice: "Sam (neutral male) or Charlotte (neutral female)",
+        reason: "Fast, efficient for conversational baseline"
+      },
+      authoritative: {
+        model: "eleven_multilingual_v2",
+        voice: "Adam (authoritative male) or Matilda (professional female)",
+        reason: "High quality, nuanced delivery for authority"
+      },
+      friendly: {
+        model: "eleven_turbo_v2_5",
+        voice: "Bella (friendly female) or Ethan (warm male)",
+        reason: "Good balance of quality and expressiveness"
+      },
+      urgent: {
+        model: "eleven_flash_v2_5",
+        voice: "Charlie (energetic male) or Freya (dynamic female)",
+        reason: "Low latency for urgent, fast-paced delivery"
+      },
+      hesitant: {
+        model: "eleven_multilingual_v2",
+        voice: "Emily (soft female) or Liam (gentle male)",
+        reason: "Best for subtle emotional nuances"
+      },
+      confident: {
+        model: "eleven_multilingual_v2",
+        voice: "Adam (confident male) or Matilda (assured female)",
+        reason: "Stable, consistent quality for confidence"
+      }
+    };
 
-    if (params.pauses && params.pauses.length > 0) {
-      promptInstructions += `PAUSES: Take deliberate pauses before and after important numbers or key information.\n`;
-    }
+    const recommendation = modelRecommendations[preset] || modelRecommendations.neutral;
 
-    promptInstructions += `\nTEXT TO SPEAK:\n"${text}"`;
+    // Generate the complete API configuration
+    return `ElevenLabs Text-to-Speech Configuration
+${'-'.repeat(50)}
 
-    return `ElevenLabs Voice Configuration:
+TEXT WITH SSML:
+${textWithSSML}
 
-${promptInstructions}
+${'-'.repeat(50)}
+VOICE SETTINGS (JSON):
+${JSON.stringify(settings, null, 2)}
 
+${'-'.repeat(50)}
+RECOMMENDED CONFIGURATION:
+
+Model: ${recommendation.model}
+  - ${recommendation.reason}
+
+Voice: ${recommendation.voice}
+
+API Endpoint: POST https://api.elevenlabs.io/v1/text-to-speech/{voice_id}
+
+${'-'.repeat(50)}
+SAMPLE API REQUEST (Python):
+
+import requests
+
+VOICE_ID = "your_voice_id_here"  # e.g., "21m00Tcm4TlvDq8ikWAM" for Rachel
+API_KEY = "your_api_key_here"
+
+url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}"
+
+headers = {
+    "xi-api-key": API_KEY,
+    "Content-Type": "application/json"
+}
+
+data = {
+    "text": """${textWithSSML}""",
+    "model_id": "${recommendation.model}",
+    "voice_settings": ${JSON.stringify(settings, null, 4).replace(/\n/g, '\n    ')}
+}
+
+response = requests.post(url, json=data, headers=headers)
+
+with open("output.mp3", "wb") as f:
+    f.write(response.content)
+
+${'-'.repeat(50)}
 NOTES:
-- Use this prompt with ElevenLabs API's "voice_settings" or "style" parameter
-- Recommended voice: Adam (authoritative), Bella (friendly), or Sam (neutral)
-- Stability: ${preset === 'authoritative' || preset === 'confident' ? '0.75 (high)' : '0.5 (moderate)'}
-- Similarity Boost: 0.75
-- Style Exaggeration: ${preset === 'neutral' ? '0' : '0.5'}`;
+
+• SSML Support: ElevenLabs supports <break time="x.xs" /> tags for pauses (max 3s)
+• Emotional Delivery: Add context in text (e.g., "she said excitedly", use exclamation marks)
+• Stability: Higher = more consistent, lower = more expressive/variable
+• Similarity Boost: Controls voice similarity (0.75 recommended)
+• Style Exaggeration: 0 = neutral, higher = more dramatic delivery
+• Speed: ${settings.speed}x (range: 0.7-1.2, default: 1.0)
+
+For banking scenarios, use ${recommendation.voice} with ${recommendation.model} for optimal results.`;
   };
 
   const generateSSML = (text: string, preset: string, platform: string = selectedPlatform) => {
