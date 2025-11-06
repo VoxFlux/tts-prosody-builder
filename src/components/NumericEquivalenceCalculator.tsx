@@ -42,8 +42,20 @@ const NumericEquivalenceCalculator = () => {
     if (savedData.numericEquivalence?.isEditing !== undefined) {
       setIsEditing(savedData.numericEquivalence.isEditing);
     }
+
+    // Check if saved data has old structure (avgSpending instead of new 6-attribute structure)
     if ((savedData.numericEquivalence as any)?.scenariosData) {
-      setScenariosData((savedData.numericEquivalence as any).scenariosData);
+      const savedScenarios = (savedData.numericEquivalence as any).scenariosData;
+
+      // Check if banking scenario has old structure (avgSpending exists = old structure)
+      if (savedScenarios.banking?.optionA?.params?.avgSpending !== undefined) {
+        // Old structure detected - use new default scenarios instead
+        console.log('Old calculator data structure detected. Resetting to new 6-attribute structure.');
+        setScenariosData(scenarios);
+      } else {
+        // New structure - load saved data
+        setScenariosData(savedScenarios);
+      }
     }
   }, []);
 
