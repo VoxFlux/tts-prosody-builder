@@ -299,6 +299,22 @@ const NumericEquivalenceCalculator = () => {
     }));
   };
 
+  const formatAttributeLabel = (key: string, scenario: string): string => {
+    if (scenario === 'banking') {
+      const labels: Record<string, string> = {
+        annualFee: 'Annual Fee (€)',
+        cashbackRate: 'Cashback Rate (%)',
+        insuranceCoverage: 'Travel Insurance Coverage (€)',
+        apr: 'APR (%)',
+        welcomeBonus: 'Welcome Bonus (€)',
+        foreignTransactionFee: 'Foreign Transaction Fee (%)'
+      };
+      return labels[key] || key;
+    }
+    // For other scenarios, just capitalize the camelCase
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
   const getCurrentParams = (option: string) => {
     if (isEditing && (editableParams as any)[option]) {
       return (editableParams as any)[option];
@@ -480,21 +496,21 @@ const NumericEquivalenceCalculator = () => {
             <h3 className="text-lg font-bold text-blue-900 mb-3">Option A: {currentScenario.optionA.label}</h3>
             
             <div className="space-y-2 mb-4">
-              <h4 className="font-semibold text-sm text-gray-700">Parameters:</h4>
+              <h4 className="font-semibold text-sm text-gray-700">Card Attributes:</h4>
               {Object.entries(getCurrentParams('optionA')).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">{key}:</span>
+                <div key={key} className="flex justify-between items-center text-sm bg-white rounded px-2 py-1.5">
+                  <span className="text-gray-700 font-medium">{formatAttributeLabel(key, activeScenario)}</span>
                   {isEditing ? (
                     <input
                       type="number"
                       step="0.01"
                       value={String(value)}
                       onChange={(e) => updateParam('optionA', key, e.target.value)}
-                      className="w-20 px-2 py-1 border rounded text-sm font-mono"
+                      className="w-24 px-2 py-1 border rounded text-sm font-mono"
                       aria-label={`${key} for Option A`}
                     />
                   ) : (
-                    <span className="font-mono font-semibold">{String(value)}</span>
+                    <span className="font-mono font-bold text-blue-900">{String(value)}</span>
                   )}
                 </div>
               ))}
@@ -517,21 +533,21 @@ const NumericEquivalenceCalculator = () => {
             <h3 className="text-lg font-bold text-green-900 mb-3">Option B: {currentScenario.optionB.label}</h3>
             
             <div className="space-y-2 mb-4">
-              <h4 className="font-semibold text-sm text-gray-700">Parameters:</h4>
+              <h4 className="font-semibold text-sm text-gray-700">Card Attributes:</h4>
               {Object.entries(getCurrentParams('optionB')).map(([key, value]) => (
-                <div key={key} className="flex justify-between items-center text-sm">
-                  <span className="text-gray-600">{key}:</span>
+                <div key={key} className="flex justify-between items-center text-sm bg-white rounded px-2 py-1.5">
+                  <span className="text-gray-700 font-medium">{formatAttributeLabel(key, activeScenario)}</span>
                   {isEditing ? (
                     <input
                       type="number"
                       step="0.01"
                       value={String(value)}
                       onChange={(e) => updateParam('optionB', key, e.target.value)}
-                      className="w-20 px-2 py-1 border rounded text-sm font-mono"
+                      className="w-24 px-2 py-1 border rounded text-sm font-mono"
                       aria-label={`${key} for Option B`}
                     />
                   ) : (
-                    <span className="font-mono font-semibold">{String(value)}</span>
+                    <span className="font-mono font-bold text-green-900">{String(value)}</span>
                   )}
                 </div>
               ))}
