@@ -262,13 +262,53 @@ const SentenceStructureStandardizer = () => {
   const analyzeText = (text: string) => {
     const sentences = text.match(/[^.!?]+[.!?]+/g) || [];
     const words = text.split(/\s+/).filter((w: string) => w.length > 0);
-    const numbers = (text.match(/€?\d+(\.\d+)?%?/g) || []).length;
-    
+
+    // Count numeric numbers (€45, 1.5%, etc.)
+    const numericNumbers = (text.match(/€?\d+(\.\d+)?%?/g) || []).length;
+
+    // Match spelled-out number patterns like "forty-five", "one point five percent", "fifty thousand euros"
+    const lowerText = text.toLowerCase();
+    const spelledOutPatterns: RegExp[] = [
+      // Compound numbers with hyphens: forty-five, twenty-three
+      /\b(twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)-(one|two|three|four|five|six|seven|eight|nine)\b/g,
+      // Decimal numbers: one point five, twelve point nine
+      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\s+point\s+(zero|one|two|three|four|five|six|seven|eight|nine)+/g,
+      // Large numbers: fifty thousand, one hundred
+      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\s+(thousand|hundred|million)/g,
+      // Single number words at word boundaries
+      /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety)\b/g
+    ];
+
+    let spelledOutCount = 0;
+    const matchedRanges: Array<[number, number]> = [];
+
+    spelledOutPatterns.forEach(pattern => {
+      const matches = [...lowerText.matchAll(pattern)];
+      matches.forEach(match => {
+        if (match.index !== undefined) {
+          const start = match.index;
+          const end = start + match[0].length;
+
+          // Check if this range overlaps with already matched ranges
+          const overlaps = matchedRanges.some(([s, e]) =>
+            (start >= s && start < e) || (end > s && end <= e) || (start <= s && end >= e)
+          );
+
+          if (!overlaps) {
+            matchedRanges.push([start, end]);
+            spelledOutCount++;
+          }
+        }
+      });
+    });
+
+    const totalNumbers = numericNumbers + spelledOutCount;
+
     return {
       sentenceCount: sentences.length,
       wordCount: words.length,
       charCount: text.length,
-      numberCount: numbers,
+      numberCount: totalNumbers,
       sentences: sentences.map((s: string) => s.trim())
     };
   };
