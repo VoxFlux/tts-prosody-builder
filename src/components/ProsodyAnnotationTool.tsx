@@ -16,15 +16,23 @@ const ProsodyAnnotationTool = () => {
   // Function to load scenarios from storage
   const loadScenarios = () => {
     const savedData = loadFromStorage();
+    console.log('Loading scenarios from storage:', savedData.prosodyAnnotation?.scenarios);
+
     if (savedData.prosodyAnnotation?.scenarios) {
       const loadedScenarios = savedData.prosodyAnnotation.scenarios;
-      setScenarios(loadedScenarios);
+
+      // Force update by creating a new array reference
+      setScenarios([...loadedScenarios]);
+
       // Auto-select the first scenario if available and none is selected
       if (loadedScenarios.length > 0 && !selectedScenario) {
         const firstScenario = loadedScenarios[0];
         setSelectedScenario(firstScenario);
         setInputText(firstScenario.optionA);
       }
+    } else {
+      console.log('No scenarios found in storage');
+      setScenarios([]);
     }
   };
 
