@@ -4,7 +4,7 @@ A comprehensive web application for designing, validating, and preparing text-to
 
 ## 🚀 Live Demo
 
-[View Live Demo](https://redpill47.github.io/tts-prosody-builder)
+[View Live Demo](https://voxflux.github.io/tts-prosody-builder/)
 
 **Features cloud sync with Supabase for cross-device data persistence.**
 
